@@ -13,7 +13,8 @@ Key Features:
 <br>
 Preview:<be>
 
-![screenshot](https://github.com/user-attachments/assets/444cec3b-0008-4458-9fa7-6fc9c1711ba9)
+![screenshot](https://github.com/user-attachments/assets/cd6aa475-6ae3-4d66-81ba-cc5ef272d533)
+
 
 <br>
 
