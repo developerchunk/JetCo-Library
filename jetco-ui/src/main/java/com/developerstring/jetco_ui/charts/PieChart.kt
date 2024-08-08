@@ -43,7 +43,9 @@ import androidx.compose.ui.unit.sp
 - [thickness]: The thickness of the pie chart slices.
 - [animationDuration]: The duration of the pie chart animation.
 - [colorsList]: An optional list of colors to be used for the pie chart slices.
-- [displayChartItems]: A boolean flag indicating whether to display chart items within the Pie Chart.*/
+- [displayChartItems]: A boolean flag indicating whether to display chart items within the Pie Chart.
+- [animationRotations]: The number of complete rotations (360 degrees) to be applied to the pie chart during the animation.
+ */
 @Composable
 fun PieChart(
     modifier: Modifier = Modifier,
@@ -52,7 +54,8 @@ fun PieChart(
     thickness: Dp = 25.dp,
     animationDuration: Int = 1000,
     colorsList: List<Color>? = null,
-    displayChartItems: Boolean = true
+    displayChartItems: Boolean = true,
+    animationRotations: Int = 11
 ) {
 
     val totalSum = data.values.sum()
@@ -60,8 +63,11 @@ fun PieChart(
 
     // To set the value of each Arc according to
     // the value given in the data, we have used a simple formula.
-    // For a detailed explanation check out the Medium Article.
-    // The link is in the about section and readme file of this GitHub Repository
+    // Calculate the sweep angle for each slice of the pie chart based on its proportion
+    // relative to the total sum of all values. The `floatValue` list stores these angles
+    // in degrees (0-360), where each angle represents the portion of the pie chart
+    // corresponding to the value at the given index in the `data` map.
+    // For a detailed explanation check out the Medium Article. [https://medium.com/@developerchunk/create-custom-pie-chart-with-animations-in-jetpack-compose-android-studio-kotlin-49cf95ef321e]
     data.values.forEachIndexed { index, values ->
         floatValue.add(index, 360 * values.toFloat() / totalSum.toFloat())
     }
@@ -90,8 +96,9 @@ fun PieChart(
 
     // if you want to stabilize the Pie Chart you can use value -90f
     // 90f is used to complete 1/4 of the rotation
+    // the 11f represents the number of rotations
     val animateRotation by animateFloatAsState(
-        targetValue = if (animationPlayed) 90f * 11f else 0f,
+        targetValue = if (animationPlayed) 90f * animationRotations else 0f,
         animationSpec = tween(
             durationMillis = animationDuration,
             delayMillis = 0,
@@ -143,7 +150,7 @@ fun PieChart(
         // To see the data in more structured way
         // Compose Function in which Items are showing data
         if (displayChartItems) {
-            DetailsPieChart(
+            PieChartItems(
                 data = list,
             )
         }
@@ -180,8 +187,10 @@ private fun dataToMutableList(
 - [thickness]: The thickness of the pie chart slices.
 - [animationDuration]: The duration of the pie chart animation.
 - [colorsList]: An optional list of colors to be used for the pie chart slices.
-- [chartItem]: A composable lambda that receives list of the the chart items Triple<String, Int, Color> - text, value, and color, allowing for customizing the content / design for chart items.
-- [displayChartItems]: A boolean flag indicating whether to display chart items within the Pie Chart.*/
+- [chartItems]: A composable lambda that receives list of the the chart items Triple<String, Int, Color> - text, value, and color, allowing for customizing the content / design for chart items.
+- [displayChartItems]: A boolean flag indicating whether to display chart items within the Pie Chart.
+- [animationRotations]: The number of complete rotations (360 degrees) to be applied to the pie chart during the animation.
+ */
 @Composable
 fun PieChart(
     modifier: Modifier = Modifier,
@@ -191,8 +200,9 @@ fun PieChart(
     animationDuration: Int = 1000,
     colorsList: List<Color>? = null,
     displayChartItems: Boolean = true,
+    animationRotations: Int = 11,
     /** This compose function returns list of Triple<String, Int, Color> - [text, value, and the color] of each item*/
-    chartItem: @Composable (List<Triple<String, Int, Color>>) -> Unit
+    chartItems: @Composable (List<Triple<String, Int, Color>>) -> Unit
 ) {
 
     val totalSum = data.values.sum()
@@ -200,8 +210,11 @@ fun PieChart(
 
     // To set the value of each Arc according to
     // the value given in the data, we have used a simple formula.
-    // For a detailed explanation check out the Medium Article.
-    // The link is in the about section and readme file of this GitHub Repository
+    // Calculate the sweep angle for each slice of the pie chart based on its proportion
+    // relative to the total sum of all values. The `floatValue` list stores these angles
+    // in degrees (0-360), where each angle represents the portion of the pie chart
+    // corresponding to the value at the given index in the `data` map.
+    // For a detailed explanation check out the Medium Article. [https://medium.com/@developerchunk/create-custom-pie-chart-with-animations-in-jetpack-compose-android-studio-kotlin-49cf95ef321e]
     data.values.forEachIndexed { index, values ->
         floatValue.add(index, 360 * values.toFloat() / totalSum.toFloat())
     }
@@ -230,8 +243,9 @@ fun PieChart(
 
     // if you want to stabilize the Pie Chart you can use value -90f
     // 90f is used to complete 1/4 of the rotation
+    // the 11f represents the number of rotations
     val animateRotation by animateFloatAsState(
-        targetValue = if (animationPlayed) 90f * 11f else 0f,
+        targetValue = if (animationPlayed) 90f * animationRotations else 0f,
         animationSpec = tween(
             durationMillis = animationDuration,
             delayMillis = 0,
@@ -293,10 +307,10 @@ fun PieChart(
         // To see the data in more structured way
         // Compose Function in which Items are showing data
         if (displayChartItems) {
-            if (chartItem !== {}) {
-                chartItem(list)
+            if (chartItems !== {}) {
+                chartItems(list)
             } else {
-                DetailsPieChart(
+                PieChartItems(
                     data = list,
                 )
             }
@@ -307,7 +321,7 @@ fun PieChart(
 }
 
 @Composable
-fun DetailsPieChart(
+fun PieChartItems(
     data: MutableList<Triple<String, Int, Color>>,
 ) {
     Column(
@@ -318,7 +332,7 @@ fun DetailsPieChart(
         // create the data items
         LazyColumn {
             items(data) { value ->
-                DetailsPieChartItem(
+                PieChartItem(
                     data = value,
                 )
             }
@@ -328,7 +342,7 @@ fun DetailsPieChart(
 }
 
 @Composable
-fun DetailsPieChartItem(
+fun PieChartItem(
     data: Triple<String, Int, Color>,
     boxSize: Dp = 35.dp,
 ) {
