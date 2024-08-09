@@ -5,6 +5,7 @@ import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -16,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.LazyColumn
@@ -33,7 +35,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -81,7 +86,7 @@ private val defaultEnterTransition = expandVertically(animationSpec = tween(dura
  * animation, user scroll, pop-up text on click, and customizable appearance using [ColumnBarChart].
  *
  * @param modifier The [Modifier] to be applied to the chart.
- * @param barData The data to be displayed in the chart, where the keys are labels for the X-axis and the values are the corresponding bar heights.
+ * @param chartData The data to be displayed in the chart, where the keys are labels for the X-axis and the values are the corresponding bar heights.
  * @param barColor The color of the bars in the chart. Default is a light pink color (0xFFEFB8C8).
  * @param barHeight The height of the bars in the chart. Default is 200.dp.
  * @param barWidth The width of the bars in the chart. Default is 20.dp.
@@ -109,11 +114,15 @@ private val defaultEnterTransition = expandVertically(animationSpec = tween(dura
  * @param enableAnimation Whether to enable animations for the bars. Default is true.
  * @param maxTextLinesXAxis The maximum number of characters to display for each X-axis label before truncating with an ellipsis. Default is 6.
  * @param yAxisScaleCount The number of divisions on the Y-axis scale. Default is 4.
+ * @param enableTextRotate Whether to rotate the X-axis labels. This can help in preventing overlap for longer labels, making them more readable. Default is true.
+ * @param textRotateAngle The angle by which the X-axis labels should be rotated. Negative values rotate the text counterclockwise, while positive values rotate it clockwise. Default is -60f.
+ * @param enableGridLines If true, grid lines will be drawn behind the bars. Default is true.
+ * @param gridLineStyle An instance of [GridLineStyle] that defines the color, stroke width, dash length, and gap length of the grid lines. Default values are present in the [GridLineStyle] data class.
  */
 @Composable
 fun ColumnBarChart(
     modifier: Modifier = Modifier,
-    barData: Map<String, Int>,
+    chartData: Map<String, Int>,
     barColor: Color = Color(0xFFEFB8C8),
     barHeight: Dp = 200.dp,
     barWidth: Dp = 20.dp,
@@ -140,7 +149,11 @@ fun ColumnBarChart(
     fontColor: Color = Color.Black,
     enableAnimation: Boolean = true,
     maxTextLinesXAxis: Int = 6,
-    yAxisScaleCount: Int = 4
+    yAxisScaleCount: Int = 4,
+    enableTextRotate: Boolean = true,
+    textRotateAngle: Float = -60f,
+    enableGridLines: Boolean = true,
+    gridLineStyle: GridLineStyle = GridLineStyle()
 ) {
 
     // State for managing the popup
@@ -149,13 +162,13 @@ fun ColumnBarChart(
 
     // Determine the maximum value in the data set, or use the provided max value
     val maxValue: Int = maxBarValue ?: try {
-        barData.values.max()
+        chartData.values.max()
     } catch (_: Exception) {
         1
     }
 
     // Transform the data into a list of BarChartItems with normalized / float heights
-    val barList = barData.mapToBarChartItems(maxValue = maxValue)
+    val barList = chartData.mapToBarChartItems(maxValue = maxValue)
 
     // State for managing whether the animation should be displayed
     var animationDisplay by remember {
@@ -219,108 +232,155 @@ fun ColumnBarChart(
                     }
                 }
 
-                // Bars and X-axis labels container
-                LazyRow(
-                    modifier = Modifier
-                        .padding(top = yAxisStepHeight)
-                        .fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    userScrollEnabled = userScrollEnable
-                ) {
-                    items(barList, key = { keyItem ->
-                        keyItem.name
-                    }) { barItem ->
+                Box(modifier = Modifier.fillMaxWidth()) {
 
-                        // State for managing the popup for each bar
-                        var isBarPopupVisible by remember { mutableStateOf(false) }
-                        var barPopupText by remember { mutableStateOf("") }
-
-                        // Bar UI
-                        Column(
+                    if (enableGridLines) {
+                        // Bars and X-axis labels container
+                        LazyColumn(
                             modifier = Modifier
-                                .wrapContentSize(),
-                            verticalArrangement = Arrangement.Bottom,
-                            horizontalAlignment = Alignment.CenterHorizontally
+                                .fillMaxWidth(),
                         ) {
-
-                            // Display the popup when a bar is clicked
-                            if (isBarPopupVisible&&enableBarPopUp) {
-                                Popup(
-                                    alignment = Alignment.Center,
-                                    onDismissRequest = { isBarPopupVisible = false },
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .background(popUpColor, shape = RoundedCornerShape(8.dp))
-                                            .padding(8.dp)
+                            items(yAxisScaleCount + 1) { index ->
+                                if (index!=0) {
+                                    Row(
+                                        modifier = Modifier.height(height = yAxisStepHeight),
+                                        verticalAlignment = Alignment.Bottom
                                     ) {
-                                        Text(
-                                            text = barPopupText,
-                                            fontSize = fontSize,
-                                            fontFamily = fontFamily,
-                                            fontWeight = fontWeight,
-                                            color = popUpTextColor
+                                        GridLine(
+                                            modifier = Modifier.padding(vertical = 1.dp).fillMaxWidth(),
+                                            gridLineStyle = gridLineStyle
                                         )
                                     }
                                 }
                             }
+                        }
+                    }
 
-                            // Bar Box
-                            Box(
+                    // Bars and X-axis labels container
+                    LazyRow(
+                        modifier = Modifier
+                            .padding(top = yAxisStepHeight)
+                            .fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        userScrollEnabled = userScrollEnable
+                    ) {
+                        items(barList, key = { keyItem ->
+                            keyItem.name
+                        }) { barItem ->
+
+                            // State for managing the popup for each bar
+                            var isBarPopupVisible by remember { mutableStateOf(false) }
+                            var barPopupText by remember { mutableStateOf("") }
+
+                            // Bar UI
+                            Column(
                                 modifier = Modifier
-                                    .height(barHeight)
-                                    .width(barWidth),
-                                contentAlignment = Alignment.BottomCenter
+                                    .wrapContentSize(),
+                                verticalArrangement = Arrangement.Bottom,
+                                horizontalAlignment = Alignment.CenterHorizontally
                             ) {
-                                // Lambda to create the bar with the specified shape, color, and click handling
-                                val barBox: @Composable () -> Unit = {
-                                    Box(
-                                        modifier = Modifier
-                                            .clip(shape = barShape)
-                                            .fillMaxHeight(barItem.floatValue)
-                                            .fillMaxWidth()
-                                            .background(
-                                                barColor
-                                            )
-                                            .clickable {
-                                                if(enableBarPopUp) {
-                                                    barPopupText = barItem.value.toString()
-                                                    isBarPopupVisible = true
-                                                }
-                                            }
-                                    )
-                                }
 
-                                // Animate the bar if animations are enabled
-                                if (enableAnimation) {
-                                    androidx.compose.animation.AnimatedVisibility(
-                                        visible = animationDisplay,
-                                        enter = enterAnimation,
-                                        exit = exitAnimation
+                                // Display the popup when a bar is clicked
+                                if (isBarPopupVisible && enableBarPopUp) {
+                                    Popup(
+                                        alignment = Alignment.Center,
+                                        onDismissRequest = { isBarPopupVisible = false },
                                     ) {
-                                        barBox()
-                                    }
-                                } else {
-                                    barBox()
-                                }
-                            }
-                            // X-axis labels below each bar
-                            if (xAxisScaleEnable) {
-                                Spacer(modifier = Modifier.height(axisLineWidth + 5.dp))
-                                val itemName = barItem.name
-                                Text(
-                                    text = if (itemName.length>maxTextLinesXAxis) "${itemName.take(maxTextLinesXAxis-2)}..." else itemName,
-                                    fontSize = fontSize,
-                                    fontFamily = fontFamily,
-                                    fontWeight = fontWeight,
-                                    color = fontColor,
-                                    modifier = Modifier.clickable {
-                                        if(enableXAxisPopUp) {
-                                            yAxisPopupText = barItem.name
-                                            isYAxisPopupVisible = true
+                                        Box(
+                                            modifier = Modifier
+                                                .background(
+                                                    popUpColor,
+                                                    shape = RoundedCornerShape(8.dp)
+                                                )
+                                                .padding(8.dp)
+                                        ) {
+                                            Text(
+                                                text = barPopupText,
+                                                fontSize = fontSize,
+                                                fontFamily = fontFamily,
+                                                fontWeight = fontWeight,
+                                                color = popUpTextColor
+                                            )
                                         }
                                     }
-                                )
+                                }
+
+                                // Bar Box
+                                Box(
+                                    modifier = Modifier
+                                        .height(barHeight)
+                                        .width(barWidth),
+                                    contentAlignment = Alignment.BottomCenter
+                                ) {
+                                    // Lambda to create the bar with the specified shape, color, and click handling
+                                    val barBox: @Composable () -> Unit = {
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(shape = barShape)
+                                                .fillMaxHeight(barItem.floatValue)
+                                                .fillMaxWidth()
+                                                .background(
+                                                    barColor
+                                                )
+                                                .clickable {
+                                                    if (enableBarPopUp) {
+                                                        barPopupText = barItem.value.toString()
+                                                        isBarPopupVisible = true
+                                                    }
+                                                }
+                                        )
+                                    }
+
+                                    // Animate the bar if animations are enabled
+                                    if (enableAnimation) {
+                                        androidx.compose.animation.AnimatedVisibility(
+                                            visible = animationDisplay,
+                                            enter = enterAnimation,
+                                            exit = exitAnimation
+                                        ) {
+                                            barBox()
+                                        }
+                                    } else {
+                                        barBox()
+                                    }
+                                }
+                                // X-axis labels below each bar
+                                if (xAxisScaleEnable) {
+                                    Spacer(modifier = Modifier.height(axisLineWidth + 5.dp))
+
+                                    val itemName = if (barItem.name.length > maxTextLinesXAxis) "${
+                                        barItem.name.take(maxTextLinesXAxis - 2)
+                                    }..." else barItem.name
+
+                                    val xAxisScaleTextUI: @Composable () -> Unit = {
+                                        Text(
+                                            text = itemName,
+                                            fontSize = fontSize,
+                                            fontFamily = fontFamily,
+                                            fontWeight = fontWeight,
+                                            color = fontColor,
+                                            modifier = Modifier.clickable {
+                                                if (enableXAxisPopUp) {
+                                                    yAxisPopupText = barItem.name
+                                                    isYAxisPopupVisible = true
+                                                }
+                                            }
+                                        )
+                                    }
+
+                                    if (enableTextRotate) {
+
+                                        Box(
+                                            modifier = Modifier
+                                                .size(itemName.length.dp * (fontSize.value / 2f))
+                                                .rotate(textRotateAngle)
+                                        ) {
+                                            xAxisScaleTextUI()
+                                        }
+                                    } else {
+                                        xAxisScaleTextUI()
+                                    }
+                                }
                             }
                         }
                     }
@@ -399,3 +459,59 @@ private data class BarChartItems(
     val value: Int,
     val floatValue: Float
 )
+
+/**
+ * Data class representing the style of grid lines in a chart.
+ *
+ * This class encapsulates the visual properties of the grid lines, such as color,
+ * stroke width, dash length, and gap length. It provides an easy way to customize
+ * the appearance of the grid lines behind the bars in a column bar chart or any
+ * other chart that supports grid lines.
+ *
+ * @property color The color of the grid lines.
+ * @property strokeWidth The width of the grid lines in Dp.
+ * @property dashLength The length of each dash in the dashed grid line.
+ * @property gapLength The length of the gap between dashes in the dashed grid line.
+ */
+data class GridLineStyle(
+    val color: Color = Color.LightGray,
+    val strokeWidth: Dp = 1.dp,
+    val dashLength: Dp = 10.dp,
+    val gapLength: Dp = 10.dp
+)
+
+/**
+ * A composable function that draws a horizontal dashed grid line.
+ *
+ * This function creates a dashed line based on the specified [GridLineStyle].
+ * It uses the [Canvas] composable to draw the line, allowing for precise
+ * control over the appearance of the grid lines in a chart. The line is drawn
+ * horizontally across the canvas, centered vertically within the provided space.
+ *
+ * @param modifier The [Modifier] to be applied to the grid line.
+ * @param gridLineStyle The style of the grid line, including color, stroke width, dash length, and gap length.
+ */
+@Composable
+private fun GridLine(
+    modifier: Modifier = Modifier,
+    gridLineStyle: GridLineStyle
+) {
+    Canvas(modifier = modifier) {
+        // Convert Dp to pixels
+        val dashLengthPx = gridLineStyle.dashLength.toPx()
+        val gapLengthPx = gridLineStyle.gapLength.toPx()
+        val strokeWidthPx = gridLineStyle.strokeWidth.toPx()
+
+        // Define the PathEffect to create dashes
+        val pathEffect = PathEffect.dashPathEffect(floatArrayOf(dashLengthPx, gapLengthPx), 0f)
+
+        // Draw the dashed line
+        drawLine(
+            color = gridLineStyle.color,
+            start = Offset(0f, size.height / 2),
+            end = Offset(size.width, size.height / 2),
+            strokeWidth = strokeWidthPx,
+            pathEffect = pathEffect
+        )
+    }
+}
