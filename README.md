@@ -92,7 +92,7 @@ ColumnBarChart(
 * **enableGridLines**: Boolean - Enables grid lines behind the bars. Default is true.
 * **gridLineStyle**: GridLineStyle - The style for grid lines including color, stroke width, dash length, and gap length.
 
-** Preview: **
+**Preview:**
 
 <table>
   <tr>
